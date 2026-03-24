@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	sa "solar_assistant"
+	sa "github.com/Solar-Assistant/go_solar_assistant"
 	"golang.org/x/term"
 )
 
