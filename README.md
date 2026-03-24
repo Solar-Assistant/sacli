@@ -6,26 +6,26 @@ Command-line tool for [SolarAssistant](https://solar-assistant.io). Can be used 
 
 **Linux (amd64):**
 ```bash
-wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-amd64
-chmod +x /usr/local/bin/sacli
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-amd64
+sudo chmod +x /usr/local/bin/sacli
 ```
 
 **Linux (arm64 — Raspberry Pi 64-bit):**
 ```bash
-wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm64
-chmod +x /usr/local/bin/sacli
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm64
+sudo chmod +x /usr/local/bin/sacli
 ```
 
 **Linux (arm — Raspberry Pi 32-bit):**
 ```bash
-wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm
-chmod +x /usr/local/bin/sacli
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm
+sudo chmod +x /usr/local/bin/sacli
 ```
 
 **macOS:**
 ```bash
-curl -Lo /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-mac
-chmod +x /usr/local/bin/sacli
+sudo curl -Lo /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-mac
+sudo chmod +x /usr/local/bin/sacli
 ```
 
 **Windows:** Download `sacli-windows.exe` from the [releases page](https://github.com/Solar-Assistant/sacli/releases/latest).
