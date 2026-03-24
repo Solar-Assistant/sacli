@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	sa "solar_assistant"
-	v1 "solar_assistant/api/v1"
+	sa "github.com/Solar-Assistant/go_solar_assistant"
+	v1 "github.com/Solar-Assistant/go_solar_assistant/api/v1"
 )
 
 // ── sites command ─────────────────────────────────────────────────────────────
