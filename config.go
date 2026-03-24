@@ -58,6 +58,7 @@ type CachedAuthorize struct {
 	SiteName  string `toml:"site_name"`
 	SiteKey   string `toml:"site_key"`
 	Token     string `toml:"token"`
+	Password  string `toml:"password,omitempty"`
 	ExpiresAt string `toml:"expires_at"`
 }
 

@@ -138,8 +138,10 @@ sacli -v site my-site metrics -t "total/pv_power"
 ```
 ```
 > GET https://solar-assistant.io/api/v1/sites?limit=1&q=name%3Amy-site
+> Authorization: Bearer eyJ...
 < 200 [{"id":123,"name":"my-site","proxy":"us-htz-1", ...}]
 > GET http://192.168.1.100/api/v1/metrics?topic=total%2Fpv_power
+> Authorization: Bearer dGt...
 < 200 [{"group":"Status","name":"PV power","topic":"total/pv_power","unit":"W","value":2}]
 total/pv_power 2 W
 ```
