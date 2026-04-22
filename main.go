@@ -10,7 +10,7 @@ import (
 	"golang.org/x/term"
 )
 
-const version = "0.2.1"
+const version = "0.2.2"
 
 var verbose bool
 
@@ -70,7 +70,10 @@ Commands:
   configure   Set credentials
   mcp         Run as a stdio MCP server
   version     Print version
-  help        Show this help`)
+  help        Show this help
+
+Example:
+  sacli site --help           Show site subcommand help`)
 }
 
 func newClient() *sa.Client {
