@@ -15,7 +15,7 @@ The cloud API key works for both cloud and local connections — no separate loc
 **Local unit (direct connection):** To connect directly to a unit on your local network without a cloud API key, save the unit's web password:
 
 ```bash
-sacli configure 192.168.1.100
+sacli configure 192.168.0.100
 ```
 
 ## Usage
@@ -40,7 +40,7 @@ sacli site 19489 metrics
 sacli site 19489 metrics -t "battery*"
 sacli site 19489 metrics -t "total/pv_power" --value
 sacli site name:my-site metrics --json
-sacli site 192.168.1.100 metrics -t "inverter_1/load_power"
+sacli site 192.168.0.100 metrics -t "inverter_1/load_power"
 ```
 
 For scripting:
@@ -112,7 +112,7 @@ sacli -v site my-site metrics -t "total/pv_power"
 > GET https://solar-assistant.io/api/v1/sites?limit=1&q=name%3Amy-site
 > Authorization: Bearer eyJ...
 < 200 [{"id":123,"name":"my-site","proxy":"us-htz-1", ...}]
-> GET http://192.168.1.100/api/v1/metrics?topic=total%2Fpv_power
+> GET http://192.168.0.100/api/v1/metrics?topic=total%2Fpv_power
 > Authorization: Bearer dGt...
 < 200 [{"group":"Status","name":"PV power","topic":"total/pv_power","unit":"W","value":2}]
 total/pv_power 2 W
