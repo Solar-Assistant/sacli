@@ -21,7 +21,7 @@ build-linux-arm:
 	GOOS=linux GOARCH=arm $(GO) build $(LDFLAGS) -o $(BINARY)-linux-arm .
 
 build-windows-amd64:
-	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BINARY)-windows.exe .
+	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BINARY).exe .
 
 build-mac:
 	GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BINARY)-mac .
@@ -32,4 +32,4 @@ install: build
 	sudo install -m 755 $(BINARY) /usr/local/bin/$(BINARY)
 
 clean:
-	rm -f $(BINARY) $(BINARY)-* $(BINARY)-windows.exe
+	rm -f $(BINARY) $(BINARY)-* $(BINARY).exe

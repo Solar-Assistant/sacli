@@ -152,7 +152,7 @@ sudo curl -Lo /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/rele
 sudo chmod +x /usr/local/bin/sacli
 ```
 
-**Windows:** Download `sacli-windows.exe` from the [releases page](https://github.com/Solar-Assistant/sacli/releases/latest).
+**Windows:** Download `sacli.exe` from the [releases page](https://github.com/Solar-Assistant/sacli/releases/latest).
 
 ## License
 
