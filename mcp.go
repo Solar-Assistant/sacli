@@ -15,6 +15,10 @@ import (
 
 const mcpCloudURL = "https://solar-assistant.io/mcp"
 
+var mcpLocalClient = &http.Client{Timeout: 5 * time.Second}
+var mcpProxyClient = &http.Client{Timeout: 10 * time.Second}
+var mcpCloudClient = &http.Client{Timeout: 10 * time.Second}
+
 type mcpRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -170,25 +174,27 @@ func mcpCallSite(apiKey string, auth CachedAuthorize, call mcpToolCall) (any, *m
 		return nil, &mcpError{Code: -32603, Message: err.Error()}
 	}
 
-	// Try local network first.
-	if auth.LocalIP != "" && isLocallyReachable(auth.LocalIP) {
+	// Try local network first (skipped if recently failed via cloud-resolved auth).
+	if auth.LocalIP != "" && !localIPRecentlyFailed(auth) && isLocallyReachable(auth.LocalIP) {
 		req, _ := http.NewRequest("POST", "http://"+auth.LocalIP+"/mcp", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+auth.Token)
-		if result, mcpErr, ok := mcpDoUnitRequest(auth, req); ok {
+		if result, mcpErr, ok := mcpDoUnitRequest(auth, req, mcpLocalClient); ok {
+			markLocalIPSucceeded(auth.SiteID)
 			return result, mcpErr
 		}
 		reachabilityCache[auth.LocalIP] = reachabilityEntry{reachable: false, checkedAt: time.Now()}
+		markLocalIPFailed(auth.SiteID)
 	}
 
 	// Try regional proxy.
 	if auth.Host != "" {
-		req, _ := http.NewRequest("POST", "https://"+auth.Host+"/mcp", bytes.NewReader(body))
+		req, _ := http.NewRequest("POST", "https://"+auth.Host+"/api/v1/mcp", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+auth.Token)
 		req.Header.Set("site-id", fmt.Sprintf("%d", auth.SiteID))
 		req.Header.Set("site-key", auth.SiteKey)
-		if result, mcpErr, ok := mcpDoUnitRequest(auth, req); ok {
+		if result, mcpErr, ok := mcpDoUnitRequest(auth, req, mcpProxyClient); ok {
 			return result, mcpErr
 		}
 	}
@@ -200,8 +206,7 @@ func mcpCallSite(apiKey string, auth CachedAuthorize, call mcpToolCall) (any, *m
 // mcpDoUnitRequest executes a prepared request to a unit (local or proxy).
 // Returns (result, error, true) if the request completed (even on HTTP error),
 // or (nil, nil, false) if the request failed at the transport level (unreachable).
-func mcpDoUnitRequest(auth CachedAuthorize, req *http.Request) (any, *mcpError, bool) {
-	client := &http.Client{Timeout: 10 * time.Second}
+func mcpDoUnitRequest(auth CachedAuthorize, req *http.Request, client *http.Client) (any, *mcpError, bool) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, false
@@ -247,12 +252,11 @@ func mcpCallCloud(apiKey string, call mcpToolCall) (any, *mcpError) {
 		return nil, &mcpError{Code: -32603, Message: err.Error()}
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, _ := http.NewRequest("POST", mcpCloudURL, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := client.Do(req)
+	resp, err := mcpCloudClient.Do(req)
 	if err != nil {
 		return nil, &mcpError{Code: -32603, Message: fmt.Sprintf("cloud unreachable: %v", err)}
 	}
@@ -276,12 +280,11 @@ func mcpFetchToolList(apiKey string) (any, error) {
 		"method":  "tools/list",
 		"id":      1,
 	})
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, _ := http.NewRequest("POST", mcpCloudURL, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := client.Do(req)
+	resp, err := mcpCloudClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

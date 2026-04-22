@@ -1,9 +1,9 @@
-GO      = /usr/local/go/bin/go
+GO      = go
 BINARY  = sacli
 VERSION = $(shell grep 'const version' main.go | grep -oP '".*?"' | tr -d '"')
 LDFLAGS = -ldflags="-s -w"
 
-.PHONY: build build-linux-amd64 build-linux-386 build-linux-arm64 build-linux-arm build-windows-amd64 build-mac build-all clean
+.PHONY: build build-linux-amd64 build-linux-386 build-linux-arm64 build-linux-arm build-windows-amd64 build-mac build-all clean install
 
 build:
 	$(GO) build $(LDFLAGS) -o $(BINARY) .
@@ -27,6 +27,9 @@ build-mac:
 	GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BINARY)-mac .
 
 build-all: build-linux-amd64 build-linux-386 build-linux-arm64 build-linux-arm build-windows-amd64 build-mac
+
+install: build
+	sudo install -m 755 $(BINARY) /usr/local/bin/$(BINARY)
 
 clean:
 	rm -f $(BINARY) $(BINARY)-* $(BINARY)-windows.exe

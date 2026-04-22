@@ -52,14 +52,16 @@ func loadConfig() (*Config, error) {
 // ── authorize cache ───────────────────────────────────────────────────────────
 
 type CachedAuthorize struct {
-	Host      string `toml:"host"`
-	LocalIP   string `toml:"local_ip"`
-	SiteID    int    `toml:"site_id"`
-	SiteName  string `toml:"site_name"`
-	SiteKey   string `toml:"site_key"`
-	Token     string `toml:"token"`
-	Password  string `toml:"password,omitempty"`
-	ExpiresAt string `toml:"expires_at"`
+	Host            string `toml:"host"`
+	LocalIP         string `toml:"local_ip"`
+	SiteID          int    `toml:"site_id"`
+	SiteName        string `toml:"site_name"`
+	SiteKey         string `toml:"site_key"`
+	Token           string `toml:"token"`
+	Password        string `toml:"password,omitempty"`
+	ExpiresAt       string `toml:"expires_at"`
+	CachedAt        string `toml:"cached_at"`
+	LocalIPFailedAt string `toml:"local_ip_failed_at,omitempty"`
 }
 
 type AuthorizeCache struct {

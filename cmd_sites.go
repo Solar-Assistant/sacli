@@ -246,6 +246,15 @@ func resolveSiteID(identifier string) int {
 	if _, err := fmt.Sscanf(identifier, "%d", &id); err == nil {
 		return id
 	}
+	if !strings.Contains(identifier, ":") {
+		if cache, err := loadAuthorizeCache(); err == nil {
+			for _, entry := range cache.Sites {
+				if strings.EqualFold(entry.SiteName, identifier) {
+					return entry.SiteID
+				}
+			}
+		}
+	}
 	queryArg := identifier
 	if !strings.Contains(identifier, ":") {
 		queryArg = "name:" + identifier
@@ -275,13 +284,21 @@ func authorizeWithCache(siteID int) CachedAuthorize {
 
 	if entry, ok := cache.Sites[key]; ok {
 		exp, err := tokenExpiry(entry.Token)
-		if err == nil && time.Now().Before(exp.Add(-5*time.Minute)) {
+		cachedAt, _ := time.Parse(time.RFC3339, entry.CachedAt)
+		if err == nil && time.Now().Before(exp.Add(-5*time.Minute)) && time.Since(cachedAt) < 8*time.Hour {
 			return entry
 		}
 	}
 
 	resp, err := v1.AuthorizeSite(newClient(), siteID)
 	if err != nil {
+		if entry, ok := cache.Sites[key]; ok {
+			exp, terr := tokenExpiry(entry.Token)
+			if terr == nil && time.Now().Before(exp) {
+				fmt.Fprintf(os.Stderr, "warning: could not refresh auth for site %d, using stale cache: %v\n", siteID, err)
+				return entry
+			}
+		}
 		fatal(err)
 	}
 
@@ -294,12 +311,57 @@ func authorizeWithCache(siteID int) CachedAuthorize {
 		SiteKey:   resp.SiteKey,
 		Token:     resp.Token,
 		ExpiresAt: exp.Format(time.RFC3339),
+		CachedAt:  time.Now().Format(time.RFC3339),
 	}
 	cache.Sites[key] = entry
 	if err := saveAuthorizeCache(cache); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not save authorize cache: %v\n", err)
 	}
 	return entry
+}
+
+const localIPFailedTTL = time.Hour
+
+// markLocalIPFailed records that the local IP for a cloud-resolved site is unreachable.
+func markLocalIPFailed(siteID int) {
+	key := fmt.Sprintf("%d", siteID)
+	cache, err := loadAuthorizeCache()
+	if err != nil {
+		return
+	}
+	entry, ok := cache.Sites[key]
+	if !ok {
+		return
+	}
+	entry.LocalIPFailedAt = time.Now().Format(time.RFC3339)
+	cache.Sites[key] = entry
+	saveAuthorizeCache(cache)
+}
+
+// markLocalIPSucceeded clears the local IP failure record for a site.
+func markLocalIPSucceeded(siteID int) {
+	key := fmt.Sprintf("%d", siteID)
+	cache, err := loadAuthorizeCache()
+	if err != nil {
+		return
+	}
+	entry, ok := cache.Sites[key]
+	if !ok || entry.LocalIPFailedAt == "" {
+		return
+	}
+	entry.LocalIPFailedAt = ""
+	cache.Sites[key] = entry
+	saveAuthorizeCache(cache)
+}
+
+// localIPRecentlyFailed returns true if the local IP for a cloud-resolved site
+// has failed within the past hour. Never blocks direct-host connections (auth.Password != "").
+func localIPRecentlyFailed(auth CachedAuthorize) bool {
+	if auth.Password != "" || auth.LocalIPFailedAt == "" {
+		return false
+	}
+	failedAt, err := time.Parse(time.RFC3339, auth.LocalIPFailedAt)
+	return err == nil && time.Since(failedAt) < localIPFailedTTL
 }
 
 func runSiteMetrics(auth CachedAuthorize, args []string) {

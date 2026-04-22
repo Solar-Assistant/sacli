@@ -2,35 +2,7 @@
 
 Command-line tool for [SolarAssistant](https://solar-assistant.io). Can be used for local connections to SolarAssistant units and to query the [solar-assistant.io](https://solar-assistant.io) API. Single executable, no dependencies.
 
-## Installation
-
-**Linux (amd64):**
-```bash
-sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-amd64
-sudo chmod +x /usr/local/bin/sacli
-```
-
-**Linux (arm64 — Raspberry Pi 64-bit):**
-```bash
-sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm64
-sudo chmod +x /usr/local/bin/sacli
-```
-
-**Linux (arm — Raspberry Pi 32-bit):**
-```bash
-sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm
-sudo chmod +x /usr/local/bin/sacli
-```
-
-**macOS:**
-```bash
-sudo curl -Lo /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-mac
-sudo chmod +x /usr/local/bin/sacli
-```
-
-**Windows:** Download `sacli-windows.exe` from the [releases page](https://github.com/Solar-Assistant/sacli/releases/latest).
-
-## Setup
+## Authentication
 
 **Cloud API:** Generate an API key at [solar-assistant.io/user/edit#api](https://solar-assistant.io/user/edit#api), then run:
 
@@ -59,7 +31,7 @@ Commands:
   help        Show this help
 ```
 
-### Fetch metrics (REST snapshot)
+### Metric snapshot - REST
 
 Returns the current value of all matching metrics. Attempts local network connection first, falls back to cloud.
 
@@ -81,7 +53,7 @@ For scripting on a SolarAssistant unit, the pre-authenticated `sitecli` is provi
 SOC=$(sitecli metrics -t "total/battery_state_of_charge" --value)
 ```
 
-### Stream live metrics (WebSocket)
+### Metric stream - WebSocket
 
 Use `--watch` to stream metrics continuously as they update:
 
@@ -153,6 +125,34 @@ To let an LLM explore the API, we suggest the following prompt:
 > Hey Claude, use `sacli --help` and `sacli -v site my-site metrics -t "*" --watch -n 10` to explore the SolarAssistant API, then tell me how I can integrate it into my Python app. Use `-v` on any other commands you run to show the underlying HTTP calls.
 
 For Go projects, [go_solar_assistant](https://github.com/Solar-Assistant/go_solar_assistant) can be pulled in directly as a library — it wraps the SolarAssistant API and WebSocket protocol and is what this CLI is built on.
+
+## Installation
+
+**Linux (amd64):**
+```bash
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-amd64
+sudo chmod +x /usr/local/bin/sacli
+```
+
+**Linux (arm64 — Raspberry Pi 64-bit):**
+```bash
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm64
+sudo chmod +x /usr/local/bin/sacli
+```
+
+**Linux (arm — Raspberry Pi 32-bit):**
+```bash
+sudo wget -O /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-linux-arm
+sudo chmod +x /usr/local/bin/sacli
+```
+
+**macOS:**
+```bash
+sudo curl -Lo /usr/local/bin/sacli https://github.com/Solar-Assistant/sacli/releases/latest/download/sacli-mac
+sudo chmod +x /usr/local/bin/sacli
+```
+
+**Windows:** Download `sacli-windows.exe` from the [releases page](https://github.com/Solar-Assistant/sacli/releases/latest).
 
 ## License
 
