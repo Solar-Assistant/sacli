@@ -156,7 +156,8 @@ Examples:
   sacli site 19489 metrics -t "battery*" --watch --json
   sacli site name:my-site metrics
   sacli site localhost:4000 metrics
-  sacli site localhost:4000 metrics --password <password>`)
+  sacli site localhost:4000 metrics --password <password>
+  sacli site localhost:4000 metrics --token <token>`)
 }
 
 // isHost returns true if s looks like a host or host:port rather than a site
@@ -190,25 +191,31 @@ func runSite(args []string) {
 
 	var auth CachedAuthorize
 	if isHost(identifier) {
+		tokenVals, rest := extractStringFlag(subArgs, "--token")
+		subArgs = rest
 		pwVals, rest := extractStringFlag(subArgs, "--password")
 		subArgs = rest
-		pw := ""
-		if len(pwVals) > 0 {
-			pw = pwVals[0]
+		if len(tokenVals) > 0 {
+			auth = CachedAuthorize{LocalIP: identifier, Token: tokenVals[0]}
 		} else {
-			cfg, err := loadConfig()
-			if err != nil {
-				fatal(err)
+			pw := ""
+			if len(pwVals) > 0 {
+				pw = pwVals[0]
+			} else {
+				cfg, err := loadConfig()
+				if err != nil {
+					fatal(err)
+				}
+				pw = cfg.Passwords[identifier]
 			}
-			pw = cfg.Passwords[identifier]
+			if pw == "" {
+				fmt.Fprintf(os.Stderr, "no password for %s\n", identifier)
+				fmt.Fprintf(os.Stderr, "  use --password <password> or --token <token>, or save the password with:\n")
+				fmt.Fprintf(os.Stderr, "  sacli configure %s\n", identifier)
+				os.Exit(1)
+			}
+			auth = CachedAuthorize{LocalIP: identifier, Password: pw}
 		}
-		if pw == "" {
-			fmt.Fprintf(os.Stderr, "no password for %s\n", identifier)
-			fmt.Fprintf(os.Stderr, "  use --password <password>, or save it with:\n")
-			fmt.Fprintf(os.Stderr, "  sacli configure %s\n", identifier)
-			os.Exit(1)
-		}
-		auth = CachedAuthorize{LocalIP: identifier, Password: pw}
 	} else {
 		siteID := resolveSiteID(identifier)
 		auth = authorizeWithCache(siteID)
