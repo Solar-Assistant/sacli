@@ -74,6 +74,9 @@ sacli site 19489 metrics --watch --json
 | `--value` | Output values only, no topic or unit — useful for scripting |
 | `--json` | Machine-readable NDJSON output |
 | `--max-freq <s>` | Minimum seconds between updates per topic (WebSocket only, server-side throttle) |
+| `--password <pw>` | Local device password, instead of using the saved credential |
+| `--token <token>` | Cloud Bearer token, instead of using the configured API key |
+| `-v` | Verbose: show all HTTP requests and WebSocket frames — useful for LLMs like Claude Code or OpenAI Codex to discover the API and build custom integrations |
 
 ### List sites
 
