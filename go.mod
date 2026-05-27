@@ -8,6 +8,8 @@ require (
 	golang.org/x/term v0.41.0
 )
 
+replace github.com/Solar-Assistant/go_solar_assistant => ../go_solar_assistant
+
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	golang.org/x/sys v0.42.0 // indirect

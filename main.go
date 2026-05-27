@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	sa "github.com/Solar-Assistant/go_solar_assistant"
+	"github.com/Solar-Assistant/go_solar_assistant/cloud"
 	"golang.org/x/term"
 )
 
@@ -40,11 +40,17 @@ func main() {
 
 	switch cmd {
 	case "site":
-		runSite(args)
+		if err := runSite(args); err != nil {
+			fatal(err)
+		}
 	case "sites":
-		runSites(args)
+		if err := runSites(args); err != nil {
+			fatal(err)
+		}
 	case "configure":
-		runConfigure(args)
+		if err := runConfigure(args); err != nil {
+			fatal(err)
+		}
 	case "mcp":
 		runMCP(args)
 	case "version", "--version":
@@ -72,21 +78,24 @@ Commands:
   version     Print version
   help        Show this help
 
-Example:
-  sacli site --help           Show site subcommand help`)
+Further help:
+  sacli site --help           Show site subcommand help
+  sacli sites --help          Show sites subcommand help
+  sacli mcp --help            Show MCP subcommand help
+  sacli configure --help      Show configure subcommand help`)
 }
 
-func newClient() *sa.Client {
+func newClient() (*cloud.Client, error) {
 	cfg, err := loadConfig()
 	if err != nil {
-		fatal(err)
+		return nil, err
 	}
 	if cfg.CloudAPIKey == "" {
-		fatal(fmt.Errorf("no API key configured — run: sacli configure"))
+		return nil, fmt.Errorf("no API key configured — run: sacli configure")
 	}
-	c := sa.NewClient(cfg.CloudAPIKey)
+	c := cloud.NewClient(cfg.CloudAPIKey)
 	c.Verbose = verbose
-	return c
+	return c, nil
 }
 
 func runInteractive() {
@@ -113,11 +122,17 @@ func runInteractive() {
 		case "help", "--help", "-h":
 			printUsage()
 		case "site":
-			runSite(rest)
+			if err := runSite(rest); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
 		case "sites":
-			runSites(rest)
+			if err := runSites(rest); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
 		case "configure":
-			runConfigure(rest)
+			if err := runConfigure(rest); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
 		case "version":
 			fmt.Println(version)
 		default:

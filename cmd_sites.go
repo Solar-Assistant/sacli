@@ -3,23 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	sa "github.com/Solar-Assistant/go_solar_assistant"
-	v1 "github.com/Solar-Assistant/go_solar_assistant/api/v1"
+	"github.com/Solar-Assistant/go_solar_assistant/cloud"
+	"github.com/Solar-Assistant/go_solar_assistant/device"
 )
 
 // ── sites command ─────────────────────────────────────────────────────────────
 
-func runSites(args []string) {
+func runSites(args []string) error {
 	if len(args) > 0 && args[0] == "authorize" {
-		runSitesAuthorize(args[1:])
-		return
+		return runSitesAuthorize(args[1:])
 	}
 
 	jsonOut, args := extractFlag(args, "--json")
@@ -37,57 +34,70 @@ Examples:
   sacli sites inverter_params_output_power:5000 inverter:growatt
   sacli sites last_seen_after:2026-01-01 build_date_after:2026-02-26
   sacli sites inverter:srne limit:50 offset:20
+  sacli sites region:us online:true
+  sacli sites license:trial channel:beta
+  sacli sites user_id:123
   sacli sites --json name:my-site`)
-		return
+		return nil
 	}
 
-	result, err := v1.ListSites(newClient(), parseQuery(args))
+	client, err := newClient()
 	if err != nil {
-		fatal(err)
+		return err
+	}
+	result, err := client.ListSites(parseQuery(args))
+	if err != nil {
+		return err
 	}
 
 	if len(result) == 0 {
 		fmt.Println("No sites found.")
-		return
+		return nil
 	}
 
 	if jsonOut {
 		out, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(out))
-		return
+		return nil
 	}
 
 	printSites(result)
+
+	return nil
 }
 
-func runSitesAuthorize(args []string) {
+func runSitesAuthorize(args []string) error {
 	jsonOut, args := extractFlag(args, "--json")
 
 	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "Usage: sacli sites authorize <site_id>")
-		os.Exit(1)
+		return fmt.Errorf("Usage: sacli sites authorize <site_id>")
 	}
 
 	var siteID int
 	if _, err := fmt.Sscanf(args[0], "%d", &siteID); err != nil {
-		fatal(fmt.Errorf("invalid site ID: %s", args[0]))
+		return fmt.Errorf("invalid site ID: %s", args[0])
 	}
 
-	result, err := v1.AuthorizeSite(newClient(), siteID)
+	client, err := newClient()
 	if err != nil {
-		fatal(err)
+		return err
+	}
+	result, err := client.AuthorizeSite(siteID)
+	if err != nil {
+		return err
 	}
 
 	if jsonOut {
 		out, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(out))
-		return
+		return nil
 	}
 
 	printAuthorize(result)
+	return nil
 }
 
-func printSites(sites []v1.Site) {
+func printSites(sites []cloud.Site) {
 	for _, s := range sites {
 		fmt.Printf("Site ID:      %d\n", s.ID)
 		fmt.Printf("Name:         %s\n", s.Name)
@@ -106,7 +116,7 @@ func printSites(sites []v1.Site) {
 	}
 }
 
-func printAuthorize(r *v1.AuthorizeResponse) {
+func printAuthorize(r *cloud.AuthorizeResponse) {
 	if r.SiteName != "" {
 		authURL := fmt.Sprintf("https://%s.%s/callback?token=%s&key=%s", r.SiteName, proxyDomain(r.Host), r.Token, r.SiteKey)
 		fmt.Printf("URL:       %s\n", authURL)
@@ -136,7 +146,8 @@ func printSiteUsage() {
 
 Subcommands:
   authorize   Generate authorization token for a site
-  metrics     Stream live metrics from a site
+  metrics     Read or stream metrics from a site
+  set         Write a setting via REST
 
 Metrics flags:
   -t <pattern>    Filter by topic glob (e.g. "battery*", "total/*"). Default is a
@@ -148,16 +159,23 @@ Metrics flags:
   --max-freq <s>  Minimum seconds between updates per topic (server-side throttle)
   -v              Verbose: show all requests and socket frames
 
+Authentication:
+  A cloud token (from "authorize") can be used to connect via the cloud or directly
+  over the local network. A local password can only be used for direct local connections.
+
 Examples:
-  sacli site 19489 authorize
-  sacli site 19489 metrics
-  sacli site 19489 metrics -t "*"
-  sacli site 19489 metrics -t "battery_1/power" -n 1 --value
-  sacli site 19489 metrics -t "battery*" --watch --json
+  sacli site 123 authorize
+  sacli site 123 metrics
+  sacli site 123 metrics -t "*" -n 500
+  sacli site 123 metrics -t "battery_1/power" -n 1 --value
+  sacli site 123 metrics -t "battery*" --watch --json
   sacli site name:my-site metrics
   sacli site localhost:4000 metrics
   sacli site localhost:4000 metrics --password <password>
-  sacli site localhost:4000 metrics --token <token>`)
+  sacli site localhost:4000 metrics --token <token>
+  sacli site 123 set inverter_1/charge_current_limit:20
+  sacli site 123 set inverter_1/device_mode:"Off grid"
+  sacli site localhost:4000 set inverter_1/charge_current_limit:20 --password <password>`)
 }
 
 // isHost returns true if s looks like a host or host:port rather than a site
@@ -171,14 +189,14 @@ func isHost(s string) bool {
 		strings.Contains(host, ".")
 }
 
-func runSite(args []string) {
+func runSite(args []string) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
 		printSiteUsage()
-		return
+		return nil
 	}
 	if len(args) < 2 {
 		printSiteUsage()
-		os.Exit(1)
+		return fmt.Errorf("not enough arguments")
 	}
 
 	identifier := args[0]
@@ -204,7 +222,7 @@ func runSite(args []string) {
 			} else {
 				cfg, err := loadConfig()
 				if err != nil {
-					fatal(err)
+					return err
 				}
 				pw = cfg.Passwords[identifier]
 			}
@@ -212,52 +230,60 @@ func runSite(args []string) {
 				fmt.Fprintf(os.Stderr, "no password for %s\n", identifier)
 				fmt.Fprintf(os.Stderr, "  use --password <password> or --token <token>, or save the password with:\n")
 				fmt.Fprintf(os.Stderr, "  sacli configure %s\n", identifier)
-				os.Exit(1)
+				return fmt.Errorf("no password for %s", identifier)
 			}
 			auth = CachedAuthorize{LocalIP: identifier, Password: pw}
 		}
 	} else {
-		siteID := resolveSiteID(identifier)
-		auth = authorizeWithCache(siteID)
+		siteID, err := resolveSiteID(identifier)
+		if err != nil {
+			return err
+		}
+		auth, err = authorizeWithCache(siteID)
+		if err != nil {
+			return err
+		}
 	}
 
 	switch subCmd {
 	case "authorize":
-		runSiteAuthorize(auth, subArgs)
+		return runSiteAuthorize(auth, subArgs)
 	case "metrics":
-		runSiteMetrics(auth, subArgs)
+		return runSiteMetrics(auth, subArgs)
+	case "set":
+		return runSiteSet(auth, subArgs)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown site subcommand: %s\n", subCmd)
-		os.Exit(1)
+		return fmt.Errorf("unknown site subcommand: %s", subCmd)
 	}
 }
 
-func runSiteAuthorize(auth CachedAuthorize, args []string) {
+func runSiteAuthorize(auth CachedAuthorize, args []string) error {
 	jsonOut, _ := extractFlag(args, "--json")
 	if jsonOut {
 		out, _ := json.MarshalIndent(auth, "", "  ")
 		fmt.Println(string(out))
-		return
+		return nil
 	}
-	printAuthorize(&v1.AuthorizeResponse{
+	printAuthorize(&cloud.AuthorizeResponse{
 		Host:     auth.Host,
 		SiteID:   auth.SiteID,
 		SiteName: auth.SiteName,
 		SiteKey:  auth.SiteKey,
 		Token:    auth.Token,
 	})
+	return nil
 }
 
-func resolveSiteID(identifier string) int {
+func resolveSiteID(identifier string) (int, error) {
 	var id int
 	if _, err := fmt.Sscanf(identifier, "%d", &id); err == nil {
-		return id
+		return id, nil
 	}
 	if !strings.Contains(identifier, ":") {
 		if cache, err := loadAuthorizeCache(); err == nil {
 			for _, entry := range cache.Sites {
 				if strings.EqualFold(entry.SiteName, identifier) {
-					return entry.SiteID
+					return entry.SiteID, nil
 				}
 			}
 		}
@@ -268,45 +294,53 @@ func resolveSiteID(identifier string) int {
 	}
 	q := parseQuery([]string{queryArg})
 	q["limit"] = 1
-	sites, err := v1.ListSites(newClient(), q)
+	client, err := newClient()
 	if err != nil {
-		fatal(err)
+		return 0, err
+	}
+	sites, err := client.ListSites(q)
+	if err != nil {
+		return 0, err
 	}
 	if len(sites) == 0 {
-		fatal(fmt.Errorf("no site found for query: %s", identifier))
+		return 0, fmt.Errorf("no site found for query: %s", identifier)
 	}
 	if len(sites) > 1 {
 		fmt.Fprintf(os.Stderr, "warning: multiple sites matched, using %s (%d)\n", sites[0].Name, sites[0].ID)
 	}
-	return sites[0].ID
+	return sites[0].ID, nil
 }
 
-func authorizeWithCache(siteID int) CachedAuthorize {
+func authorizeWithCache(siteID int) (CachedAuthorize, error) {
 	key := fmt.Sprintf("%d", siteID)
 
 	cache, err := loadAuthorizeCache()
 	if err != nil {
-		fatal(err)
+		return CachedAuthorize{}, err
 	}
 
 	if entry, ok := cache.Sites[key]; ok {
 		exp, err := tokenExpiry(entry.Token)
 		cachedAt, _ := time.Parse(time.RFC3339, entry.CachedAt)
 		if err == nil && time.Now().Before(exp.Add(-5*time.Minute)) && time.Since(cachedAt) < 8*time.Hour {
-			return entry
+			return entry, nil
 		}
 	}
 
-	resp, err := v1.AuthorizeSite(newClient(), siteID)
+	client, err := newClient()
+	if err != nil {
+		return CachedAuthorize{}, err
+	}
+	resp, err := client.AuthorizeSite(siteID)
 	if err != nil {
 		if entry, ok := cache.Sites[key]; ok {
 			exp, terr := tokenExpiry(entry.Token)
 			if terr == nil && time.Now().Before(exp) {
 				fmt.Fprintf(os.Stderr, "warning: could not refresh auth for site %d, using stale cache: %v\n", siteID, err)
-				return entry
+				return entry, nil
 			}
 		}
-		fatal(err)
+		return CachedAuthorize{}, err
 	}
 
 	exp, _ := tokenExpiry(resp.Token)
@@ -324,7 +358,7 @@ func authorizeWithCache(siteID int) CachedAuthorize {
 	if err := saveAuthorizeCache(cache); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not save authorize cache: %v\n", err)
 	}
-	return entry
+	return entry, nil
 }
 
 const localIPFailedTTL = time.Hour
@@ -371,7 +405,7 @@ func localIPRecentlyFailed(auth CachedAuthorize) bool {
 	return err == nil && time.Since(failedAt) < localIPFailedTTL
 }
 
-func runSiteMetrics(auth CachedAuthorize, args []string) {
+func runSiteMetrics(auth CachedAuthorize, args []string) error {
 	jsonOut, args := extractFlag(args, "--json")
 	watch, args := extractFlag(args, "--watch")
 	valueOut, args := extractFlag(args, "--value")
@@ -394,8 +428,7 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 	}
 
 	if !watch {
-		runRESTMetrics(auth, filters, limit, jsonOut, valueOut)
-		return
+		return runRESTMetrics(auth, filters, limit, jsonOut, valueOut)
 	}
 
 	if verbose {
@@ -403,7 +436,7 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 	}
 
 	status("Connecting to " + strOr(auth.SiteName, auth.LocalIP, auth.Host) + "...")
-	sock, err := sa.Connect(sa.Options{
+	sock, err := device.Connect(device.Options{
 		Host:     host,
 		LocalIP:  auth.LocalIP,
 		Token:    auth.Token,
@@ -413,7 +446,7 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 		Verbose:  verbose,
 	})
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	defer sock.Close()
 	if auth.LocalIP != "" && sock.ConnectedHost == auth.LocalIP {
@@ -422,7 +455,9 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 		status("Connected via cloud (" + sock.ConnectedHost + ").")
 	}
 
-	sock.Subscribe("metrics", "phx_reply", func(msg sa.Message) {
+	var sockErr error
+
+	sock.Subscribe("metrics", "phx_reply", func(msg device.Message) {
 		if s, _ := msg.Payload["status"].(string); s == "ok" {
 			status("Streaming metrics (Ctrl+C to stop)...")
 		} else {
@@ -434,19 +469,19 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 				return "", false
 			}()
 			if reason == "unmatched topic" {
-				fmt.Fprintf(os.Stderr, "failed to join metrics channel — site may be running an outdated version (requires build 2026-03-24 or later)\n")
+				sockErr = fmt.Errorf("failed to join metrics channel — site may be running an outdated version (requires build 2026-03-24 or later)")
 			} else {
-				fmt.Fprintf(os.Stderr, "failed to join metrics channel: %s\n", reason)
+				sockErr = fmt.Errorf("failed to join metrics channel: %s", reason)
 			}
-			os.Exit(1)
+			sock.Close()
 		}
 	})
-	sock.Subscribe("*", "phx_error", func(msg sa.Message) {
+	sock.Subscribe("*", "phx_error", func(msg device.Message) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", msg.Payload)
 	})
 
 	if !jsonOut && !valueOut {
-		sock.Subscribe("metrics", "definition", func(msg sa.Message) {
+		sock.Subscribe("metrics", "definition", func(msg device.Message) {
 			items, _ := msg.Payload["definitions"].([]any)
 			for _, item := range items {
 				mm, _ := item.(map[string]any)
@@ -464,13 +499,13 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 		})
 	}
 
-	topicFilters := make([]sa.TopicFilter, len(filters))
+	topicFilters := make([]device.TopicFilter, len(filters))
 	for i, f := range filters {
-		topicFilters[i] = sa.TopicFilter{Topic: f, MaxFrequencyS: maxFreq}
+		topicFilters[i] = device.TopicFilter{Topic: f, MaxFrequencyS: maxFreq}
 	}
 
 	count := 0
-	if err := sock.SubscribeMetrics(func(m sa.Metric) {
+	if err := sock.SubscribeMetrics(func(m device.Metric) {
 		if valueOut {
 			fmt.Println(m.Value)
 		} else if jsonOut {
@@ -488,108 +523,66 @@ func runSiteMetrics(auth CachedAuthorize, args []string) {
 		}
 		count++
 		if limit > 0 && count >= limit {
-			os.Exit(0)
+			sock.Close()
 		}
 	}, topicFilters...); err != nil {
-		fatal(err)
+		return err
 	}
 	sock.Listen()
+	return sockErr
 }
 
-type restMetric struct {
-	Topic string `json:"topic"`
-	Group string `json:"group"`
-	Name  string `json:"name"`
-	Value any    `json:"value"`
-	Unit  string `json:"unit"`
-}
-
-func runRESTMetrics(auth CachedAuthorize, filters []string, limit int, jsonOut, valueOut bool) {
-	var baseURL string
+// resolveRESTHost returns the host and scheme to use for device REST calls.
+// Tries the local IP first (500ms TCP probe); falls back to the cloud proxy host.
+func resolveRESTHost(auth CachedAuthorize) (host, scheme string) {
 	if auth.LocalIP != "" {
-		// Try local first with a short timeout; fall back to cloud proxy if unreachable.
-		host := auth.LocalIP
-		if !strings.Contains(host, ":") {
-			host += ":80"
+		probe := auth.LocalIP
+		if !strings.Contains(probe, ":") {
+			probe += ":80"
 		}
-		conn, err := net.DialTimeout("tcp", host, 500*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", probe, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
-			baseURL = "http://" + auth.LocalIP
-		} else {
-			baseURL = "https://" + auth.Host
+			return auth.LocalIP, "http"
 		}
-	} else {
-		baseURL = "https://" + auth.Host
 	}
+	return auth.Host, "https"
+}
 
-	// Collect metrics, one request per filter (or one request with no filter)
-	seen := map[string]bool{}
-	var results []restMetric
+// newDeviceClient builds a device.Client from cached auth, probing local vs cloud.
+func newDeviceClient(auth CachedAuthorize) *device.Client {
+	host, scheme := resolveRESTHost(auth)
+	dc := device.NewClient(host)
+	dc.Password = auth.Password
+	dc.Token = auth.Token
+	dc.SiteID = auth.SiteID
+	dc.SiteKey = auth.SiteKey
+	dc.Scheme = scheme
+	dc.Verbose = verbose
+	return dc
+}
 
-	topics := filters
-	if len(topics) == 0 {
-		topics = []string{""}
+func runSiteSet(auth CachedAuthorize, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("Usage: sacli site <id|host> set <topic>:<value>")
 	}
+	idx := strings.IndexByte(args[0], ':')
+	if idx < 1 {
+		return fmt.Errorf("invalid argument %q — expected topic:value", args[0])
+	}
+	topic, value := args[0][:idx], args[0][idx+1:]
 
-	httpClient := &http.Client{Timeout: 5 * time.Second}
-	for _, topic := range topics {
-		u := baseURL + "/api/v1/metrics"
-		req, err := http.NewRequest("GET", u, nil)
-		if err != nil {
-			fatal(err)
-		}
-		if topic != "" {
-			q := req.URL.Query()
-			q.Set("topic", topic)
-			req.URL.RawQuery = q.Encode()
-		}
-		if auth.Password != "" {
-			// Pure local connection (no cloud auth) — use basic auth with web password.
-			req.SetBasicAuth("solar-assistant", auth.Password)
-		} else {
-			req.Header.Set("Authorization", "Bearer "+auth.Token)
-			if auth.SiteID != 0 {
-				req.Header.Set("site-id", fmt.Sprintf("%d", auth.SiteID))
-			}
-			if auth.SiteKey != "" {
-				req.Header.Set("site-key", auth.SiteKey)
-			}
-		}
-		if verbose {
-			fmt.Fprintf(os.Stderr, "> GET %s\n", req.URL.String())
-			for k, v := range req.Header {
-				fmt.Fprintf(os.Stderr, "> %s: %s\n", k, strings.Join(v, ", "))
-			}
-		}
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			fatal(err)
-		}
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			fatal(err)
-		}
-		if verbose {
-			fmt.Fprintf(os.Stderr, "< %d %s\n", resp.StatusCode, strings.TrimSpace(string(body)))
-		}
-		if resp.StatusCode == http.StatusNotFound {
-			fatal(fmt.Errorf("HTTP 404: site may be running an outdated version (requires build 2026-03-24 or later)"))
-		}
-		if resp.StatusCode != http.StatusOK {
-			fatal(fmt.Errorf("API error %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
-		}
-		var batch []restMetric
-		if err := json.Unmarshal(body, &batch); err != nil {
-			fatal(fmt.Errorf("unexpected response: %w", err))
-		}
-		for _, m := range batch {
-			if !seen[m.Topic] {
-				seen[m.Topic] = true
-				results = append(results, m)
-			}
-		}
+	if err := newDeviceClient(auth).SetMetric(topic, value); err != nil {
+		return err
+	}
+	fmt.Printf("set %s = %s\n", topic, value)
+	return nil
+}
+
+func runRESTMetrics(auth CachedAuthorize, filters []string, limit int, jsonOut, valueOut bool) error {
+	results, err := newDeviceClient(auth).GetMetrics(filters...)
+	if err != nil {
+		return err
 	}
 
 	count := 0
@@ -598,19 +591,22 @@ func runRESTMetrics(auth CachedAuthorize, filters []string, limit int, jsonOut, 
 			fmt.Println(m.Value)
 		} else if jsonOut {
 			line, _ := json.Marshal(struct {
-				Topic string `json:"topic"`
-				Group string `json:"group"`
-				Name  string `json:"name"`
-				Value any    `json:"value"`
-				Unit  string `json:"unit"`
-			}{m.Topic, m.Group, m.Name, m.Value, m.Unit})
+				Topic  string `json:"topic"`
+				Device string `json:"device"`
+				Number int    `json:"number"`
+				Group  string `json:"group"`
+				Name   string `json:"name"`
+				Value  any    `json:"value"`
+				Unit   string `json:"unit"`
+			}{m.Topic, m.Device, m.Number, m.Group, m.Name, m.Value, m.Unit})
 			fmt.Println(string(line))
 		} else {
 			fmt.Printf("%s %v %s\n", m.Topic, m.Value, m.Unit)
 		}
 		count++
 		if limit > 0 && count >= limit {
-			return
+			return nil
 		}
 	}
+	return nil
 }

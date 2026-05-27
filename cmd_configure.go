@@ -8,7 +8,7 @@ import (
 	"golang.org/x/term"
 )
 
-func runConfigure(args []string) {
+func runConfigure(args []string) error {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		dir, _ := configDir()
 		fmt.Printf(`Usage: sacli configure [host] [token]
@@ -27,7 +27,7 @@ Examples:
   sacli configure localhost:4000 --password initpass
   sacli configure 192.168.1.100 --password mypassword
 `, dir)
-		return
+		return nil
 	}
 
 	// Local host password
@@ -44,39 +44,40 @@ Examples:
 			pw = strings.TrimSpace(string(b))
 			if pw == "" {
 				fmt.Println("No changes made.")
-				return
+				return nil
 			}
 		}
 		cfg, err := loadConfig()
 		if err != nil {
-			fatal(err)
+			return err
 		}
 		if cfg.Passwords == nil {
 			cfg.Passwords = map[string]string{}
 		}
 		cfg.Passwords[host] = pw
 		if err := saveConfig(cfg); err != nil {
-			fatal(err)
+			return err
 		}
 		path, _ := configPath()
 		fmt.Printf("Password for %s saved to %s\n", host, path)
-		return
+		return nil
 	}
 
 	cfg, err := loadConfig()
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	// Direct save if key provided as argument
 	if len(args) == 1 {
 		cfg.CloudAPIKey = args[0]
 		if err := saveConfig(cfg); err != nil {
-			fatal(err)
+			return err
 		}
+		deleteMCPToolsCache()
 		path, _ := configPath()
 		fmt.Printf("API key saved to %s\n", path)
-		return
+		return nil
 	}
 
 	// Prompt
@@ -95,13 +96,21 @@ Examples:
 
 	if input == "" {
 		fmt.Println("No changes made.")
-		return
+		return nil
 	}
 
 	cfg.CloudAPIKey = input
 	if err := saveConfig(cfg); err != nil {
-		fatal(err)
+		return err
 	}
+	deleteMCPToolsCache()
 	path, _ := configPath()
 	fmt.Printf("API key saved to %s\n", path)
+	return nil
+}
+
+func deleteMCPToolsCache() {
+	if path, err := mcpToolsCachePath(); err == nil {
+		os.Remove(path)
+	}
 }

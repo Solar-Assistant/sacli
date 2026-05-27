@@ -58,14 +58,22 @@ type CachedAuthorize struct {
 	SiteName        string `toml:"site_name"`
 	SiteKey         string `toml:"site_key"`
 	Token           string `toml:"token"`
-	Password        string `toml:"password,omitempty"`
+	Password        string `toml:"password,omitempty" json:"-"`
 	ExpiresAt       string `toml:"expires_at"`
-	CachedAt        string `toml:"cached_at"`
-	LocalIPFailedAt string `toml:"local_ip_failed_at,omitempty"`
+	CachedAt        string `toml:"cached_at" json:"-"`
+	LocalIPFailedAt string `toml:"local_ip_failed_at,omitempty" json:"-"`
 }
 
 type AuthorizeCache struct {
 	Sites map[string]CachedAuthorize `toml:"sites"`
+}
+
+func mcpToolsCachePath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "mcp_tools_cache.json"), nil
 }
 
 func authorizeCachePath() (string, error) {
