@@ -2,6 +2,8 @@
 
 Command-line tool for [SolarAssistant](https://solar-assistant.io). Can be used for local connections to SolarAssistant units and to query the [solar-assistant.io](https://solar-assistant.io) API. Single executable, no dependencies.
 
+## [Installation](#installation)
+
 ## Authentication
 
 **Cloud API:** Generate an API key at [solar-assistant.io/user/edit#api](https://solar-assistant.io/user/edit#api), then run:
@@ -104,6 +106,16 @@ sacli site 19489 metrics --watch --json
 sacli sites --json
 ```
 
+## SSH
+
+SSH directly into a SolarAssistant device through the cloud proxy — no port forwarding or VPN required:
+
+```bash
+sacli ssh my-site
+```
+
+See the [remote SSH access guide](https://solar-assistant.io/help/integration/remote-ssh) for setup and security details.
+
 ## Integration
 
 This CLI is designed so that an LLM can use it to learn how to integrate SolarAssistant into your app. Running any command with `-v` outputs the exact HTTP and WebSocket calls being made:
@@ -159,4 +171,6 @@ sudo chmod +x /usr/local/bin/sacli
 
 ## License
 
-[MIT](LICENSE)
+Apache 2.0 — see [LICENSE](LICENSE).
+
+This licence covers the command-line tool in this repository only. The SolarAssistant platform — including the downloadable device software and cloud infrastructure — is proprietary and distributed under separate terms.
