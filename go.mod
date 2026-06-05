@@ -1,4 +1,4 @@
-module sa_cmd
+module sacli
 
 go 1.25.0
 

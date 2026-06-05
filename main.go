@@ -10,7 +10,7 @@ import (
 	"golang.org/x/term"
 )
 
-const version = "0.2.3"
+const version = "0.2.4"
 
 var verbose bool
 
@@ -51,6 +51,8 @@ func main() {
 		if err := runConfigure(args); err != nil {
 			fatal(err)
 		}
+	case "ssh":
+		runSSH(args)
 	case "mcp":
 		runMCP(args)
 	case "version", "--version":
@@ -73,6 +75,7 @@ Usage:
 Commands:
   site        Connect to a site and run subcommands
   sites       List or search sites
+  ssh         SSH to a site, or manage SSH config
   configure   Set credentials
   mcp         Run as a stdio MCP server
   version     Print version
@@ -81,6 +84,7 @@ Commands:
 Further help:
   sacli site --help           Show site subcommand help
   sacli sites --help          Show sites subcommand help
+  sacli ssh --help            Show SSH subcommand help
   sacli mcp --help            Show MCP subcommand help
   sacli configure --help      Show configure subcommand help`)
 }
@@ -129,6 +133,8 @@ func runInteractive() {
 			if err := runSites(rest); err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)
 			}
+		case "ssh":
+			runSSH(rest)
 		case "configure":
 			if err := runConfigure(rest); err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)

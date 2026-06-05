@@ -106,8 +106,7 @@ func printSites(sites []cloud.Site) {
 		fmt.Printf("Battery:      %s (x%d)\n", strOr(s.Battery, "unknown"), max1(s.BatteryCount))
 		fmt.Printf("Bat params:   %s\n", fmtParams(s.BatteryParams))
 		fmt.Printf("Proxy:        %s\n", strOr(s.Proxy, "none"))
-		fmt.Printf("Web port:     %v\n", anyOr(s.WebPort, "none"))
-		fmt.Printf("SSH port:     %v\n", anyOr(s.SSHPort, "none"))
+		fmt.Printf("Local IP:     %s\n", strOr(s.LocalIP, "none"))
 		fmt.Printf("Arch:         %s\n", strOr(s.Arch, "unknown"))
 		fmt.Printf("Build date:   %s\n", strOr(s.BuildDate, "unknown"))
 		fmt.Printf("Last seen:    %s\n", strOr(s.LastSeenAt, "unknown"))
@@ -124,6 +123,9 @@ func printAuthorize(r *cloud.AuthorizeResponse) {
 	fmt.Printf("Site ID:   %d\n", r.SiteID)
 	fmt.Printf("Site name: %s\n", r.SiteName)
 	fmt.Printf("Host:      %s\n", r.Host)
+	if r.SiteHost != "" {
+		fmt.Printf("Site host/alias: %s\n", r.SiteHost)
+	}
 	fmt.Printf("Site key:  %s\n", r.SiteKey)
 	fmt.Printf("Token:     %s\n", r.Token)
 }
@@ -346,6 +348,7 @@ func authorizeWithCache(siteID int) (CachedAuthorize, error) {
 	exp, _ := tokenExpiry(resp.Token)
 	entry := CachedAuthorize{
 		Host:      resp.Host,
+		SiteHost:  resp.SiteHost,
 		LocalIP:   resp.LocalIP,
 		SiteID:    resp.SiteID,
 		SiteName:  resp.SiteName,

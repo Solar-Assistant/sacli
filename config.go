@@ -53,6 +53,7 @@ func loadConfig() (*Config, error) {
 
 type CachedAuthorize struct {
 	Host            string `toml:"host"`
+	SiteHost        string `toml:"site_host,omitempty"`
 	LocalIP         string `toml:"local_ip"`
 	SiteID          int    `toml:"site_id"`
 	SiteName        string `toml:"site_name"`
