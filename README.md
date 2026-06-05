@@ -2,7 +2,7 @@
 
 Command-line tool for [SolarAssistant](https://solar-assistant.io). Can be used for local connections to SolarAssistant units and to query the [solar-assistant.io](https://solar-assistant.io) API. Single executable, no dependencies.
 
-## [Installation](#installation)
+## [⬇ Installation](#install)
 
 ## Authentication
 
@@ -140,6 +140,8 @@ To let an LLM explore the API, we suggest the following prompt:
 > Hey Claude, use `sacli --help` and `sacli -v site my-site metrics -t "*" --watch -n 10` to explore the SolarAssistant API, then tell me how I can integrate it into my Python app. Use `-v` on any other commands you run to show the underlying HTTP calls.
 
 For Go projects, [go_solar_assistant](https://github.com/Solar-Assistant/go_solar_assistant) can be pulled in directly as a library — it wraps the SolarAssistant API and WebSocket protocol and is what this CLI is built on.
+
+<a name="install"></a>
 
 ## Installation
 
