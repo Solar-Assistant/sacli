@@ -15,6 +15,9 @@ import (
 type Config struct {
 	CloudAPIKey string            `toml:"cloud_api_key"`
 	Passwords   map[string]string `toml:"site_passwords"`
+	// The organization whose portal "sacli portal" previews. Not a credential:
+	// the endpoint it is used against is public.
+	PortalOrgID int `toml:"portal_org_id,omitempty"`
 }
 
 func configDir() (string, error) {

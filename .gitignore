@@ -3,3 +3,7 @@ sacli
 sacli-*
 sacli.exe
 sitecli
+
+# Local instructions, not for the public repository
+CLAUDE.md
+.commit-message

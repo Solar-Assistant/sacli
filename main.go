@@ -53,6 +53,10 @@ func main() {
 		}
 	case "ssh":
 		runSSH(args)
+	case "portal":
+		if err := runPortal(args); err != nil {
+			fatal(err)
+		}
 	case "mcp":
 		runMCP(args)
 	case "version", "--version":
@@ -76,6 +80,7 @@ Commands:
   site        Connect to a site and run subcommands
   sites       List or search sites
   ssh         SSH to a site, or manage SSH config
+  portal      Serve a portal template checkout locally
   configure   Set credentials
   mcp         Run as a stdio MCP server
   version     Print version
@@ -85,6 +90,7 @@ Further help:
   sacli site --help           Show site subcommand help
   sacli sites --help          Show sites subcommand help
   sacli ssh --help            Show SSH subcommand help
+  sacli portal --help         Show portal subcommand help
   sacli mcp --help            Show MCP subcommand help
   sacli configure --help      Show configure subcommand help`)
 }
@@ -135,6 +141,10 @@ func runInteractive() {
 			}
 		case "ssh":
 			runSSH(rest)
+		case "portal":
+			if err := runPortal(rest); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
 		case "configure":
 			if err := runConfigure(rest); err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)

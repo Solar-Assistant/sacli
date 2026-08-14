@@ -28,6 +28,7 @@ sacli <command> [arguments]
 Commands:
   site        Connect to a site and run subcommands
   sites       List or search sites
+  portal      Serve a portal template checkout locally
   configure   Set credentials
   version     Print version
   help        Show this help
@@ -115,6 +116,11 @@ sacli ssh my-site
 ```
 
 See the [remote SSH access guide](https://solar-assistant.io/help/integration/remote-ssh) for setup and security details.
+
+## Advanced usage
+
+- [Building a custom customer portal](docs/portal.md) — serve your portal template on your own
+  machine while you work on it, instead of pushing to staging to see a change.
 
 ## Integration
 
