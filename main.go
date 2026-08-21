@@ -10,7 +10,7 @@ import (
 	"golang.org/x/term"
 )
 
-const version = "0.2.5"
+const version = "0.2.6"
 
 var verbose bool
 
