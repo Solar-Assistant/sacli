@@ -68,9 +68,10 @@ Examples:
 
 func runSitesAuthorize(args []string) error {
 	jsonOut, args := extractFlag(args, "--json")
+	roles, args := extractStringFlag(args, "--roles")
 
 	if len(args) != 1 {
-		return fmt.Errorf("Usage: sacli sites authorize <site_id>")
+		return fmt.Errorf("Usage: sacli sites authorize <site_id> [--roles admin,ssh]")
 	}
 
 	var siteID int
@@ -82,7 +83,7 @@ func runSitesAuthorize(args []string) error {
 	if err != nil {
 		return err
 	}
-	result, err := client.AuthorizeSite(siteID)
+	result, err := client.AuthorizeSite(siteID, roles...)
 	if err != nil {
 		return err
 	}
@@ -313,8 +314,11 @@ func resolveSiteID(identifier string) (int, error) {
 	return sites[0].ID, nil
 }
 
-func authorizeWithCache(siteID int) (CachedAuthorize, error) {
+func authorizeWithCache(siteID int, roles ...string) (CachedAuthorize, error) {
 	key := fmt.Sprintf("%d", siteID)
+	if len(roles) > 0 {
+		key += ":" + strings.Join(roles, ",")
+	}
 
 	cache, err := loadAuthorizeCache()
 	if err != nil {
@@ -333,7 +337,7 @@ func authorizeWithCache(siteID int) (CachedAuthorize, error) {
 	if err != nil {
 		return CachedAuthorize{}, err
 	}
-	resp, err := client.AuthorizeSite(siteID)
+	resp, err := client.AuthorizeSite(siteID, roles...)
 	if err != nil {
 		if entry, ok := cache.Sites[key]; ok {
 			exp, terr := tokenExpiry(entry.Token)

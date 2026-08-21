@@ -45,7 +45,7 @@ func runSSHConnect(args []string) {
 	if err != nil {
 		fatal(err)
 	}
-	auth, err := authorizeWithCache(siteID)
+	auth, err := authorizeWithCache(siteID, "ssh")
 	if err != nil {
 		fatal(err)
 	}
@@ -102,7 +102,7 @@ Then the following will work:
 	if err != nil {
 		fatal(err)
 	}
-	auth, err := authorizeWithCache(siteID)
+	auth, err := authorizeWithCache(siteID, "ssh")
 	if err != nil {
 		fatal(err)
 	}
