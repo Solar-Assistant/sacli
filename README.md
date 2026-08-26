@@ -115,14 +115,14 @@ SSH directly into a SolarAssistant device through the cloud proxy — no port fo
 sacli ssh my-site
 ```
 
-See the [remote SSH access guide](https://solar-assistant.io/help/integration/remote-ssh) for setup and security details.
+See the [remote SSH access guide](https://solar-assistant.io/help/access/remote-ssh) for setup and security details.
 
 ## Advanced usage
 
 - [Building a custom customer portal](docs/portal.md) — serve your portal template on your own
   machine while you work on it, instead of pushing to staging to see a change.
 
-## Integration
+## CLI as integration assistant
 
 This CLI is designed so that an LLM can use it to learn how to integrate SolarAssistant into your app. Running any command with `-v` outputs the exact HTTP and WebSocket calls being made:
 
@@ -145,7 +145,7 @@ To let an LLM explore the API, we suggest the following prompt:
 
 > Hey Claude, use `sacli --help` and `sacli -v site my-site metrics -t "*" --watch -n 10` to explore the SolarAssistant API, then tell me how I can integrate it into my Python app. Use `-v` on any other commands you run to show the underlying HTTP calls.
 
-For Go projects, [go_solar_assistant](https://github.com/Solar-Assistant/go_solar_assistant) can be pulled in directly as a library — it wraps the SolarAssistant API and WebSocket protocol and is what this CLI is built on.
+For Go projects, [go_solar_assistant](https://github.com/Solar-Assistant/go_solar_assistant) can be pulled in directly as a library — it wraps the SolarAssistant API and WebSocket protocol and is what this CLI is built on. For Python, there is [py_solar_assistant](https://github.com/Solar-Assistant/py_solar_assistant).
 
 <a name="install"></a>
 
