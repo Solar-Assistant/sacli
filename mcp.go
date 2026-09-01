@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +53,8 @@ func runMCP(args []string) {
 Run sacli as an MCP server. Requires a cloud API key (run: sacli configure).
 
   --list              List available tools and exit
-  --tools pattern,... Only expose tools matching these names or glob patterns
+  --tools pattern,... Only expose tools matching these names or glob patterns, and ask
+                      the cloud to list any of them it keeps out of its own tool list
                       Example: --tools site_status,site_get_*
   --http [port]       Serve over HTTP (default port: 3005)
   --stdio             Serve over stdio (default when --http is not given)
@@ -128,7 +130,7 @@ though this is only useful in advanced setups.`)
 		timeout = 3 * time.Second
 	}
 
-	toolList, err := mcpFetchToolList(cfg.CloudAPIKey, timeout)
+	toolList, err := mcpFetchToolList(cfg.CloudAPIKey, timeout, toolPatterns)
 	if err != nil {
 		if !hasCachedTools {
 			fmt.Fprintf(os.Stderr, "error: could not fetch MCP tool list from cloud: %v\n", err)
@@ -140,7 +142,7 @@ though this is only useful in advanced setups.`)
 			fmt.Fprintf(os.Stderr, "error: could not read cached tool list: %v\n", err)
 			os.Exit(1)
 		}
-	} else if cachePath != "" {
+	} else if cachePath != "" && len(toolPatterns) == 0 {
 		mcpSaveToolList(cachePath, toolList)
 	}
 
@@ -455,15 +457,21 @@ func mcpCallCloud(apiKey string, call mcpToolCall) (any, *mcpError) {
 	return rpc.Result, nil
 }
 
-// mcpFetchToolList fetches the tools/list from the cloud and returns the result object.
-func mcpFetchToolList(apiKey string, timeout time.Duration) (any, error) {
+// mcpFetchToolList fetches the tools/list from the cloud and returns the result object. The
+// cloud keeps its rarer tools out of that list, so the patterns go with the request: they ask
+// for those to be listed too, and without that --tools could only ever narrow.
+func mcpFetchToolList(apiKey string, timeout time.Duration, patterns []string) (any, error) {
 	body, _ := json.Marshal(map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "tools/list",
 		"id":      1,
 	})
+	url := mcpCloudURL
+	if len(patterns) > 0 {
+		url += "?tools=" + neturl.QueryEscape(strings.Join(patterns, ","))
+	}
 	client := &http.Client{Timeout: timeout}
-	req, _ := http.NewRequest("POST", mcpCloudURL, bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
