@@ -121,6 +121,8 @@ See the [remote SSH access guide](https://solar-assistant.io/help/access/remote-
 
 - [Building a custom customer portal](docs/portal.md) — serve your portal template on your own
   machine while you work on it, instead of pushing to staging to see a change.
+- [Connecting an AI assistant over MCP](docs/mcp.md) — run sacli as an MCP server so Claude Code,
+  Cursor or another assistant can use the SolarAssistant tools and call your sites directly.
 
 ## CLI as integration assistant
 
