@@ -8,25 +8,45 @@ import (
 	"golang.org/x/term"
 )
 
+// apiKeyEnvVar carries the cloud API key to `sacli configure` so the key never
+// has to appear in argv, where ps and the shell history can both read it.
+const apiKeyEnvVar = "SACLI_API_KEY"
+
+// readAPIKeyFromTerminal prompts for a key with echo off. It is a variable only
+// so tests can drive the prompt without a tty; production always gets the
+// terminal read below.
+var readAPIKeyFromTerminal = func() string {
+	b, _ := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println()
+	return strings.TrimSpace(string(b))
+}
+
 func runConfigure(args []string) error {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		dir, _ := configDir()
 		fmt.Printf(`Usage: sacli configure [host] [token]
 
-  sacli configure                         Prompt for cloud API key
-  sacli configure <api_key>               Save cloud API key directly
-  sacli configure <host>                  Prompt for password for host
-  sacli configure <host> --password <pw>  Save password directly
+  sacli configure                           Prompt for cloud API key
+  SACLI_API_KEY=<key> sacli configure       Save cloud API key from the environment
+  sacli configure <api_key>                 Save cloud API key directly (deprecated)
+  sacli configure <host>                    Prompt for password for host
+  sacli configure <host> --password <pw>    Save password directly
+
+API key precedence: argument > %s > prompt.
+
+Passing the key as an argument is deprecated: it is visible in ps, in
+/proc/<pid>/cmdline and in shell history for the life of the process. Prefer
+the environment variable or the prompt.
 
 Credentials are stored in: %s
 
 Examples:
   sacli configure
-  sacli configure eyJ...
+  SACLI_API_KEY=eyJ... sacli configure
   sacli configure localhost:4000
   sacli configure localhost:4000 --password initpass
   sacli configure 192.168.1.100 --password mypassword
-`, dir)
+`, apiKeyEnvVar, dir)
 		return nil
 	}
 
@@ -68,9 +88,21 @@ Examples:
 		return err
 	}
 
-	// Direct save if key provided as argument
+	// Direct save if a key came from the argument or the environment. The
+	// argument wins, so scripts written against the positional form keep
+	// working; the env var is the way to avoid argv altogether.
+	key, haveKey := "", false
 	if len(args) == 1 {
-		cfg.CloudAPIKey = args[0]
+		key, haveKey = args[0], true
+		fmt.Fprintf(os.Stderr,
+			"warning: passing the API key as an argument is deprecated: it is visible in ps, in /proc/<pid>/cmdline and in shell history; use %s=<key> instead\n",
+			apiKeyEnvVar)
+	} else if v := strings.TrimSpace(os.Getenv(apiKeyEnvVar)); v != "" {
+		key, haveKey = v, true
+	}
+
+	if haveKey {
+		cfg.CloudAPIKey = key
 		if err := saveConfig(cfg); err != nil {
 			return err
 		}
@@ -90,9 +122,7 @@ Examples:
 		fmt.Print("Paste your API key here: ")
 	}
 
-	b, _ := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
-	input := strings.TrimSpace(string(b))
+	input := readAPIKeyFromTerminal()
 
 	if input == "" {
 		fmt.Println("No changes made.")

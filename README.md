@@ -12,6 +12,14 @@ Command-line tool for [SolarAssistant](https://solar-assistant.io). Can be used 
 sacli configure
 ```
 
+or hand the key over through the environment, so it never appears in the process list or your shell history:
+
+```bash
+SACLI_API_KEY=eyJ... sacli configure
+```
+
+The key can still be given as an argument (`sacli configure <api_key>`), but that is deprecated: the key is visible in `ps`, in `/proc/<pid>/cmdline` and in shell history for the life of the process. Precedence is **argument > `SACLI_API_KEY` > interactive prompt**.
+
 The cloud API key works for both cloud and local connections — no separate local credential needed per site.
 
 **Local unit (direct connection):** To connect directly to a unit on your local network without a cloud API key, save the unit's web password:
