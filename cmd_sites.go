@@ -192,10 +192,47 @@ func isHost(s string) bool {
 		strings.Contains(host, ".")
 }
 
+// localTokenPath is where the app on a SolarAssistant unit writes its local token at start-up.
+var localTokenPath = "/run/solar-assistant/local-token"
+
+// extractLocalToken handles --local-token, which is deliberately undocumented: it is available on
+// units as the command `sitecli`, authenticating to the unit's own app at 127.0.0.1 with its local token.
+func extractLocalToken(args []string) (rest []string, token string, err error) {
+	found := false
+	for _, a := range args {
+		if a == "--local-token" {
+			found = true
+		} else {
+			rest = append(rest, a)
+		}
+	}
+	if !found {
+		return args, "", nil
+	}
+	for _, a := range rest {
+		if a == "--password" || a == "--token" {
+			return nil, "", fmt.Errorf("--local-token cannot be combined with %s", a)
+		}
+	}
+	data, readErr := os.ReadFile(localTokenPath)
+	token = strings.TrimSpace(string(data))
+	if readErr != nil || token == "" {
+		return nil, "", fmt.Errorf("cannot read %s (run as the solar-assistant user or root, with the app running)", localTokenPath)
+	}
+	if len(rest) == 0 || !isHost(rest[0]) {
+		rest = append([]string{"127.0.0.1"}, rest...)
+	}
+	return rest, token, nil
+}
+
 func runSite(args []string) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
 		printSiteUsage()
 		return nil
+	}
+	args, localToken, err := extractLocalToken(args)
+	if err != nil {
+		return err
 	}
 	if len(args) < 2 {
 		printSiteUsage()
@@ -219,10 +256,10 @@ func runSite(args []string) error {
 		if len(tokenVals) > 0 {
 			auth = CachedAuthorize{LocalIP: identifier, Token: tokenVals[0]}
 		} else {
-			pw := ""
+			pw := localToken
 			if len(pwVals) > 0 {
 				pw = pwVals[0]
-			} else {
+			} else if pw == "" {
 				cfg, err := loadConfig()
 				if err != nil {
 					return err
