@@ -18,7 +18,7 @@ build-linux-arm64:
 	GOOS=linux GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BINARY)-linux-arm64 .
 
 build-linux-arm:
-	GOOS=linux GOARCH=arm $(GO) build $(LDFLAGS) -o $(BINARY)-linux-arm .
+	GOOS=linux GOARCH=arm GOARM=6 $(GO) build $(LDFLAGS) -o $(BINARY)-linux-arm .
 
 build-windows-amd64:
 	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BINARY).exe .
