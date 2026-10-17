@@ -25,7 +25,8 @@ Subcommands:
 
 Connect directly to a site:
   sacli ssh 19489
-  sacli ssh my-site`)
+  sacli ssh my-site
+  sacli ssh 192.168.1.50`)
 		return
 	}
 
@@ -41,11 +42,7 @@ Connect directly to a site:
 
 func runSSHConnect(args []string) {
 	identifier := args[0]
-	siteID, err := resolveSiteID(identifier)
-	if err != nil {
-		fatal(err)
-	}
-	auth, err := authorizeWithCache(siteID, "ssh")
+	auth, err := authorizeSSH(identifier)
 	if err != nil {
 		fatal(err)
 	}
@@ -77,6 +74,22 @@ func runSSHConnect(args []string) {
 	}
 }
 
+// authorizeSSH gets SSH auth for a site, or for the unit at a local address as "sacli local" lists it.
+func authorizeSSH(identifier string) (CachedAuthorize, error) {
+	// my-site.us.solar-assistant.io → look up by site name "my-site"
+	if strings.HasSuffix(identifier, ".solar-assistant.io") {
+		identifier = strings.SplitN(identifier, ".", 2)[0]
+	}
+	if isHost(identifier) {
+		return authorizeLocalUnit(identifier, "ssh")
+	}
+	siteID, err := resolveSiteID(identifier)
+	if err != nil {
+		return CachedAuthorize{}, err
+	}
+	return authorizeWithCache(siteID, "ssh")
+}
+
 func runSSHProxy(args []string) {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
 		fmt.Println(`Usage: sacli ssh proxy <site>
@@ -94,15 +107,7 @@ Then the following will work:
 		return
 	}
 
-	identifier := args[0]
-	if strings.HasSuffix(identifier, ".solar-assistant.io") {
-		identifier = strings.SplitN(identifier, ".", 2)[0]
-	}
-	siteID, err := resolveSiteID(identifier)
-	if err != nil {
-		fatal(err)
-	}
-	auth, err := authorizeWithCache(siteID, "ssh")
+	auth, err := authorizeSSH(args[0])
 	if err != nil {
 		fatal(err)
 	}

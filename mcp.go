@@ -146,6 +146,7 @@ though this is only useful in advanced setups.`)
 		mcpSaveToolList(cachePath, toolList)
 	}
 
+	toolList = mcpAddLocalTools(toolList)
 	if len(toolPatterns) > 0 {
 		toolList = mcpFilterTools(toolList, toolPatterns)
 	}
@@ -320,8 +321,65 @@ func mcpFilterTools(toolList any, patterns []string) any {
 	return result
 }
 
+// mcpLocalUnitsTool is the one tool sacli answers itself: only this machine can see its own network.
+const mcpLocalUnitsTool = "local_units"
+
+// mcpAddLocalTools appends the tools sacli implements to the list the cloud returned.
+func mcpAddLocalTools(toolList any) any {
+	m, ok := toolList.(map[string]any)
+	if !ok {
+		return toolList
+	}
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		result[k] = v
+	}
+	tools, _ := m["tools"].([]any)
+	result["tools"] = append(append([]any{}, tools...), map[string]any{
+		"name": mcpLocalUnitsTool,
+		"description": "List the SolarAssistant units on the local network of the machine running sacli: address, " +
+			"site id (null when not registered), machine name, build date and ethernet/wifi/monitoring state. " +
+			"Needs no site id; use a returned site_id with the site_ tools.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"cidrs": map[string]any{
+					"type":        "array",
+					"items":       map[string]any{"type": "string"},
+					"description": "IPv4 ranges to search instead, e.g. 192.168.1.0/24.",
+				},
+				"scan": map[string]any{
+					"type":        "boolean",
+					"description": "Search this machine's subnets and mDNS instead of asking the cloud which units are on this network.",
+				},
+			},
+		},
+	})
+	return result
+}
+
+func mcpCallLocalUnits(args map[string]any) (any, *mcpError) {
+	var cidrs []string
+	raw, _ := args["cidrs"].([]any)
+	for _, c := range raw {
+		if s, ok := c.(string); ok {
+			cidrs = append(cidrs, s)
+		}
+	}
+	scan, _ := args["scan"].(bool)
+	units, err := findLocalUnits(cidrs, scan)
+	if err != nil {
+		return nil, &mcpError{Code: -32602, Message: err.Error()}
+	}
+	text, _ := json.MarshalIndent(units, "", "  ")
+	return map[string]any{"content": []any{map[string]any{"type": "text", "text": string(text)}}}, nil
+}
+
 // mcpDispatch routes a tool call to the appropriate destination.
 func mcpDispatch(apiKey string, call mcpToolCall) (any, *mcpError) {
+	if call.Name == mcpLocalUnitsTool {
+		return mcpCallLocalUnits(call.Arguments)
+	}
 	if strings.HasPrefix(call.Name, "site_") {
 		siteID := siteIDFromArgs(call.Arguments)
 		if siteID != 0 {

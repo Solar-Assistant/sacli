@@ -78,6 +78,10 @@ directly, with the same local-then-proxy-then-cloud order as every other sacli c
 cached site authorization. Everything else — sites search, orders, account — goes to the cloud. A
 site needs SolarAssistant build 2026-03-24 or later to answer directly.
 
+One tool is sacli's own: `local_units` lists the SolarAssistant units on the network of the machine
+running the server, as `sacli local` does, since only that machine can see them. It returns each
+unit's `site_id`, which is what the `site_` tools take.
+
 The tools act as you. One that changes a setting or starts monitoring changes it on the real site;
 most clients ask before running a tool like that, and it is worth leaving that on.
 

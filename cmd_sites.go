@@ -165,6 +165,8 @@ Metrics flags:
 Authentication:
   A cloud token (from "authorize") can be used to connect via the cloud or directly
   over the local network. A local password can only be used for direct local connections.
+  A unit's local address needs neither when your API key can reach its site; "sacli local"
+  lists the units on this network.
 
 Examples:
   sacli site 123 authorize
@@ -173,6 +175,7 @@ Examples:
   sacli site 123 metrics -t "battery_1/power" -n 1 --value
   sacli site 123 metrics -t "battery*" --watch --json
   sacli site name:my-site metrics
+  sacli site 192.168.1.50 metrics
   sacli site localhost:4000 metrics
   sacli site localhost:4000 metrics --password <password>
   sacli site localhost:4000 metrics --token <token>
@@ -266,13 +269,14 @@ func runSite(args []string) error {
 				}
 				pw = cfg.Passwords[identifier]
 			}
-			if pw == "" {
-				fmt.Fprintf(os.Stderr, "no password for %s\n", identifier)
+			if pw != "" {
+				auth = CachedAuthorize{LocalIP: identifier, Password: pw}
+			} else if auth, err = authorizeLocalUnit(identifier); err != nil {
+				fmt.Fprintf(os.Stderr, "no password for %s, and %v\n", identifier, err)
 				fmt.Fprintf(os.Stderr, "  use --password <password> or --token <token>, or save the password with:\n")
 				fmt.Fprintf(os.Stderr, "  sacli configure %s\n", identifier)
 				return fmt.Errorf("no password for %s", identifier)
 			}
-			auth = CachedAuthorize{LocalIP: identifier, Password: pw}
 		}
 	} else {
 		siteID, err := resolveSiteID(identifier)
@@ -281,7 +285,7 @@ func runSite(args []string) error {
 		}
 		auth, err = authorizeWithCache(siteID)
 		if err != nil {
-			return err
+			return hintLocalAddr(identifier, err)
 		}
 	}
 
@@ -289,12 +293,27 @@ func runSite(args []string) error {
 	case "authorize":
 		return runSiteAuthorize(auth, subArgs)
 	case "metrics":
-		return runSiteMetrics(auth, subArgs)
+		return hintLocalAddr(identifier, runSiteMetrics(auth, subArgs))
 	case "set":
-		return runSiteSet(auth, subArgs)
+		return hintLocalAddr(identifier, runSiteSet(auth, subArgs))
 	default:
 		return fmt.Errorf("unknown site subcommand: %s", subCmd)
 	}
+}
+
+// hintLocalAddr adds to a failure on a bare number that it was read as a site id, when a unit answers at that local address.
+func hintLocalAddr(identifier string, err error) error {
+	if err == nil {
+		return nil
+	}
+	addr := lastOctetAddr(identifier)
+	if addr == "" {
+		return err
+	}
+	if _, probeErr := discoverUnit(addr); probeErr != nil {
+		return err
+	}
+	return fmt.Errorf("%w\n  %s was read as a site id — for the unit at %s, give the full address", err, identifier, addr)
 }
 
 func runSiteAuthorize(auth CachedAuthorize, args []string) error {

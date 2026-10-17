@@ -28,6 +28,7 @@ sacli <command> [arguments]
 Commands:
   site        Connect to a site and run subcommands
   sites       List or search sites
+  local       List the units on the local network
   portal      Serve a portal template checkout locally
   configure   Set credentials
   version     Print version
@@ -89,6 +90,29 @@ sacli sites inverter:srne
 sacli sites name:my-site --json
 ```
 
+### List units on the local network
+
+```bash
+sacli local
+```
+
+```
+ADDRESS        SITE ID         NAME                   BUILD DATE  ETHERNET  WIFI  MONITORING
+192.168.1.50   19489           SolarAssistant-#19489  2026-10-12  down      up    connected
+192.168.1.63   not registered  SolarAssistant-4f2a9c  2026-10-12  up        down  disconnected
+```
+
+Finds the units on your network without knowing their addresses: the cloud is asked which units share your internet connection, and each one that answers at its local address is listed. An address from the list can be used in place of a site, for any unit your API key can reach:
+
+```bash
+sacli site 192.168.1.50 metrics
+sacli ssh 192.168.1.50
+```
+
+A unit on a build from before 2026-03-24 can only confirm that it is a SolarAssistant unit, so it is listed with its site id as `unknown`.
+
+`sacli local --scan` searches the network itself instead, which needs no API key or internet and also finds a unit that has never been online. Pass a range to search a network this machine is not on: `sacli local 10.0.20.0/24`.
+
 ### Authorize a site
 
 ```bash
@@ -105,6 +129,7 @@ All commands support `--json`:
 sacli site 19489 metrics --json
 sacli site 19489 metrics --watch --json
 sacli sites --json
+sacli local --json
 ```
 
 ## SSH

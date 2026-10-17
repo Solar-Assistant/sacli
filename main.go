@@ -47,6 +47,10 @@ func main() {
 		if err := runSites(args); err != nil {
 			fatal(err)
 		}
+	case "local":
+		if err := runLocal(args); err != nil {
+			fatal(err)
+		}
 	case "configure":
 		if err := runConfigure(args); err != nil {
 			fatal(err)
@@ -79,6 +83,7 @@ Usage:
 Commands:
   site        Connect to a site and run subcommands
   sites       List or search sites
+  local       List the units on the local network
   ssh         SSH to a site, or manage SSH config
   portal      Serve a portal template checkout locally
   configure   Set credentials
@@ -89,6 +94,7 @@ Commands:
 Further help:
   sacli site --help           Show site subcommand help
   sacli sites --help          Show sites subcommand help
+  sacli local --help          Show local subcommand help
   sacli ssh --help            Show SSH subcommand help
   sacli portal --help         Show portal subcommand help
   sacli mcp --help            Show MCP subcommand help
@@ -137,6 +143,10 @@ func runInteractive() {
 			}
 		case "sites":
 			if err := runSites(rest); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
+		case "local":
+			if err := runLocal(rest); err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)
 			}
 		case "ssh":
