@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"sort"
@@ -52,12 +54,13 @@ func runLocal(args []string) error {
 List the SolarAssistant units on the local network.
 
 The cloud is asked which units share this network's internet connection, and each one
-that answers at its local address is listed. That includes a unit not yet registered,
+that answers at its local address is listed, together with every unit that announces
+itself over mDNS (units with peering enabled). That includes a unit not yet registered,
 once it has been online.
 
-  --scan    Search the network itself instead: mDNS, and a request to every address on
-            this machine's subnets. Needs no API key or internet, and is what runs when
-            no API key is configured. A subnet larger than /22 is narrowed to the /24
+  --scan    Search the network itself instead of asking the cloud: mDNS, and a request to
+            every address on this machine's subnets. Needs no API key or internet, and is
+            what runs when no API key is configured. A subnet larger than /22 is narrowed to the /24
             around this machine's own address; name a range to search somewhere else.
 
 An address from the list works wherever a site does, for a unit your API key can reach:
@@ -122,20 +125,37 @@ func findLocalUnits(cidrs []string, scan bool) ([]LocalUnit, error) {
 		}
 		return sortUnits(probeHosts(hosts)), nil
 	}
+
+	addrs := localIPv4Addrs()
+	browsed := make(chan map[string]LocalUnit, 1)
+	go func() { browsed <- mdnsBrowse(addrs, 1500*time.Millisecond) }()
 	if !scan {
 		if client, err := newClient(); err == nil {
-			units, err := cloudLocalUnits(client)
+			found, err := cloudLocalUnits(client)
 			if err == nil {
-				return units, nil
+				return sortUnits(mergeAdvertised(found, <-browsed)), nil
 			}
 			fmt.Fprintf(os.Stderr, "warning: could not ask the cloud (%v), scanning the network instead\n", err)
 		}
 	}
-	return scanLocalUnits(), nil
+	// This machine's own addresses are left out: a dev server here would otherwise be listed once per interface.
+	own := map[string]bool{}
+	for _, a := range addrs {
+		own[a.IP.String()] = true
+	}
+	var hosts []string
+	for _, a := range addrs {
+		for _, h := range subnetHosts(narrowSubnet(a)) {
+			if !own[h] {
+				hosts = append(hosts, h)
+			}
+		}
+	}
+	return sortUnits(mergeAdvertised(probeHosts(hosts), <-browsed)), nil
 }
 
 // cloudLocalUnits asks the cloud for the sites behind this network's internet address and keeps those that answer locally.
-func cloudLocalUnits(client *cloud.Client) ([]LocalUnit, error) {
+func cloudLocalUnits(client *cloud.Client) (map[string]LocalUnit, error) {
 	body, err := client.Get("/api/v1/sites/local", nil)
 	if err != nil {
 		return nil, err
@@ -173,22 +193,12 @@ func cloudLocalUnits(client *cloud.Client) ([]LocalUnit, error) {
 			delete(found, addr)
 		}
 	}
-	return sortUnits(found), nil
+	return found, nil
 }
 
-// scanLocalUnits searches this machine's own subnets and mDNS.
-func scanLocalUnits() []LocalUnit {
-	addrs := localIPv4Addrs()
-	browsed := make(chan map[string]LocalUnit, 1)
-	go func() { browsed <- mdnsBrowse(addrs, 1500*time.Millisecond) }()
-	var hosts []string
-	for _, a := range addrs {
-		hosts = append(hosts, subnetHosts(narrowSubnet(a))...)
-	}
-	found := probeHosts(hosts)
-	advertised := <-browsed
-
-	// A unit advertising on a port other than 80, or on a subnet the probe narrowed away.
+// mergeAdvertised adds the units that answered mDNS to found, probing any found does not already have.
+func mergeAdvertised(found, advertised map[string]LocalUnit) map[string]LocalUnit {
+	// A unit on a port other than 80, on a subnet the sweep narrowed away, or whose cloud address is wrong.
 	var extra []string
 	for addr := range advertised {
 		if _, ok := found[addr]; !ok {
@@ -205,7 +215,7 @@ func scanLocalUnits() []LocalUnit {
 			found[addr] = u
 		}
 	}
-	return sortUnits(found)
+	return found
 }
 
 func sortUnits(found map[string]LocalUnit) []LocalUnit {
@@ -322,7 +332,9 @@ func probeUnit(host string) (*LocalUnit, error) {
 	if err == nil {
 		return u, nil
 	}
-	if !answersDiscoverSVG(host) {
+	// Nothing answered at all, so asking again for the image would only wait out a second timeout.
+	var transportErr *url.Error
+	if errors.As(err, &transportErr) || !answersDiscoverSVG(host) {
 		return nil, err
 	}
 	return &LocalUnit{Address: host, Legacy: true}, nil

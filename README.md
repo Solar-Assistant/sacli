@@ -102,7 +102,7 @@ ADDRESS        SITE ID         NAME                   BUILD DATE  ETHERNET  WIFI
 192.168.1.63   not registered  SolarAssistant-4f2a9c  2026-10-12  up        down  disconnected
 ```
 
-Finds the units on your network without knowing their addresses: the cloud is asked which units share your internet connection, and each one that answers at its local address is listed. An address from the list can be used in place of a site, for any unit your API key can reach:
+Finds the units on your network without knowing their addresses: the cloud is asked which units share your internet connection, and each one that answers at its local address is listed, together with any unit that announces itself over mDNS. An address from the list can be used in place of a site, for any unit your API key can reach:
 
 ```bash
 sacli site 192.168.1.50 metrics
