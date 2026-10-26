@@ -55,7 +55,7 @@ List the SolarAssistant units on the local network.
 
 The cloud is asked which units share this network's internet connection, and each one
 that answers at its local address is listed, together with every unit that announces
-itself over mDNS (units with peering enabled). That includes a unit not yet registered,
+itself over mDNS. That includes a unit not yet registered,
 once it has been online.
 
   --scan    Search the network itself instead of asking the cloud: mDNS, and a request to
@@ -245,7 +245,7 @@ func localIPv4Addrs() []*net.IPNet {
 	var out []*net.IPNet
 	ifaces, _ := net.Interfaces()
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || virtualInterface(iface.Name) {
 			continue
 		}
 		addrs, _ := iface.Addrs()
@@ -256,6 +256,21 @@ func localIPv4Addrs() []*net.IPNet {
 		}
 	}
 	return out
+}
+
+// virtualInterface reports a bridge, VPN or container interface, whose sweep would fill the kernel's ARP table and
+// crowd out the real network's addresses.
+func virtualInterface(name string) bool {
+	if _, err := os.Stat("/sys/class/net"); err == nil {
+		_, err := os.Stat("/sys/class/net/" + name + "/device")
+		return err != nil
+	}
+	for _, prefix := range []string{"docker", "br-", "veth", "virbr", "vboxnet", "vmnet", "bridge", "utun"} {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // lastOctetAddr returns the address on this machine's network that ends in s, when s is a bare number that could be one.
